@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LevelProps, NoteKey, RhythmNote } from '../types';
 import { Music } from 'lucide-react';
 
-const TARGET_SCORE = 15; // Hits needed
-const SPAWN_RATE = 1500; // ms
+const TARGET_SCORE = 4; // Reduced from 15 for easier difficulty
+const SPAWN_RATE = 2000; // Slower spawn rate (2s)
 const KEYS: NoteKey[] = ['D', 'I', 'Y', 'M'];
 
 const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
@@ -12,6 +12,7 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
   const [health, setHealth] = useState(100);
   const [combo, setCombo] = useState(0);
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
+  const [feedback, setFeedback] = useState<{text: string, color: string} | null>(null);
   
   const requestRef = useRef<number>();
   const lastSpawnTime = useRef<number>(0);
@@ -37,7 +38,7 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
     setNotes(prevNotes => {
       const nextNotes = prevNotes.map(n => ({
         ...n,
-        position: n.position + 0.6 
+        position: n.position + 0.4 // Slowed down from 0.6
       })).filter(n => {
         // Remove notes that fall off screen
         if (n.position > 115 && !n.hit) {
@@ -62,6 +63,8 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
     if (missed) {
         setHealth(h => Math.max(0, h - 10));
         setCombo(0);
+        setFeedback({ text: 'MISS', color: 'text-red-500' });
+        setTimeout(() => setFeedback(null), 500);
     }
   }, [notes]);
 
@@ -79,10 +82,12 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
 
     // Gameplay Logic: Check for hit
     setNotes(prev => {
+        // Significantly widened hit window (60% to 110%)
+        // This allows hitting the note much earlier or slightly late
         const hitIndex = prev.findIndex(n => 
             n.key === upperKey && 
-            n.position > 75 && 
-            n.position < 95 && 
+            n.position > 60 && 
+            n.position < 110 && 
             !n.hit
         );
 
@@ -92,6 +97,10 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
             newNotes[hitIndex].hit = true;
             setScore(s => s + 1);
             setCombo(c => c + 1);
+            
+            setFeedback({ text: 'PERFECT!', color: 'text-green-400' });
+            setTimeout(() => setFeedback(null), 500);
+            
             return newNotes;
         }
         return prev;
@@ -130,7 +139,7 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
       {/* HUD */}
       <div className="absolute top-4 w-full flex justify-between px-8 z-10">
         <div className="flex flex-col">
-             <span className="text-pink-400 font-bold drop-shadow-md">HYPE: {score}/{TARGET_SCORE}</span>
+             <span className="text-pink-400 font-bold drop-shadow-md">HITS: {score}/{TARGET_SCORE}</span>
              <div className="w-32 h-4 border-2 border-white bg-black mt-1">
                  <div className="h-full bg-green-500 transition-all duration-300" style={{width: `${health}%`}}></div>
              </div>
@@ -142,13 +151,20 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
 
       <div className="mb-4 text-center z-10">
         <h2 className="text-3xl font-bold text-pink-300 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">TEENAGE SYMPHONY</h2>
-        <p className="text-sm text-purple-200">Hold keys to the rhythm!</p>
+        <p className="text-sm text-purple-200">Press D, I, Y, M when notes hit the bar!</p>
       </div>
 
       {/* Rhythm Track */}
       <div className="relative w-full max-w-md h-96 bg-black/80 border-x-4 border-gray-700 flex justify-around items-end pb-8 shadow-2xl mt-4">
          {/* Hit Zone Indicator */}
-         <div className="absolute bottom-[32px] left-0 w-full h-16 bg-white/5 border-y-2 border-white/20 pointer-events-none"></div>
+         <div className="absolute bottom-[32px] left-0 w-full h-16 bg-white/10 border-y-2 border-white/30 pointer-events-none box-border"></div>
+
+         {/* Feedback Pop-up */}
+         {feedback && (
+            <div className={`absolute top-1/3 left-1/2 -translate-x-1/2 text-4xl font-bold ${feedback.color} animate-bounce z-50 drop-shadow-md`}>
+                {feedback.text}
+            </div>
+         )}
 
          {KEYS.map(key => {
              const isActive = activeKeys.has(key);

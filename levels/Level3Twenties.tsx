@@ -1,47 +1,51 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LevelProps } from '../types';
 import PixelButton from '../components/PixelButton';
-import { BookOpen, Beer, Eye } from 'lucide-react';
+import { BookOpen, Beer, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
-  // Focus Mechanics
-  const [focus, setFocus] = useState(50); // 0 to 100. Keep between 30 and 70.
-  const [driftDirection, setDriftDirection] = useState(1); // -1 left, 1 right
+  // Focus Mechanics: 0 (Left) to 100 (Right). Center is 50.
+  const [focus, setFocus] = useState(50);
   
   // Counting Mechanics
-  const [timeLeft, setTimeLeft] = useState(45);
-  const [currentTask, setCurrentTask] = useState<'NONE' | 'BEER' | 'EYE'>('NONE');
-  const [correctCounts, setCorrectCounts] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(10);
+  const [activeDistraction, setActiveDistraction] = useState<'NONE' | 'BEER' | 'EYE'>('NONE');
+  const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string>("");
 
   const gameLoopRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const eventLoopRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  // Game Loop for Focus Decay & Drift
+  // Game Loop for Physics (Drift & Pull)
   useEffect(() => {
     gameLoopRef.current = setInterval(() => {
       setFocus(prev => {
-        // Random drift variance
-        const noise = Math.random() * 2 - 1;
-        const change = (driftDirection * 0.8) + noise;
+        let change = 0;
+
+        // 1. Distraction Pull (The main force)
+        if (activeDistraction === 'EYE') {
+            change -= 0.8; // Pull Left
+        } else if (activeDistraction === 'BEER') {
+            change += 0.8; // Pull Right
+        } else {
+            // 2. Gentle natural drift when idle
+            // Oscillate slightly based on time to feel "alive"
+            change = Math.sin(Date.now() / 500) * 0.1;
+        }
+
         const newVal = prev + change;
 
+        // Fail Condition: Out of bounds
         if (newVal <= 0 || newVal >= 100) {
             onFail();
-            return prev;
+            return newVal;
         }
         return newVal;
       });
-
-      // Occasionally switch drift direction
-      if (Math.random() > 0.95) {
-          setDriftDirection(prev => prev * -1);
-      }
-
-    }, 50);
+    }, 30);
 
     return () => clearInterval(gameLoopRef.current);
-  }, [driftDirection, onFail]);
+  }, [activeDistraction, onFail]);
 
   // Timer
   useEffect(() => {
@@ -49,136 +53,162 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
         setTimeLeft(t => {
             if (t <= 1) {
                 clearInterval(timer);
-                if (correctCounts >= 5) {
-                     onComplete(correctCounts * 200);
-                } else {
-                     onFail();
-                }
+                // Win condition: Survived the timer
+                onComplete(1000 + (score * 100));
                 return 0;
             }
             return t - 1;
         });
     }, 1000);
     return () => clearInterval(timer);
-  }, [correctCounts, onComplete, onFail]);
+  }, [score, onComplete]);
 
-  // Spawn Random Counting Events
+  // Spawn Events (Distractions)
   useEffect(() => {
     const spawnEvent = () => {
-        if (Math.random() > 0.5) {
+        // Only spawn if nothing is active
+        if (activeDistraction !== 'NONE') return;
+
+        if (Math.random() > 0.3) { 
+            // 50/50 chance of Left (Eye) or Right (Beer)
             const type = Math.random() > 0.5 ? 'BEER' : 'EYE';
-            setCurrentTask(type);
-            // Auto clear event if not clicked fast enough
-            setTimeout(() => setCurrentTask('NONE'), 2000);
+            setActiveDistraction(type);
         }
     };
 
-    eventLoopRef.current = setInterval(spawnEvent, 3000); // Every 3 seconds
+    eventLoopRef.current = setInterval(spawnEvent, 2000); // Check every 2s
     return () => clearInterval(eventLoopRef.current);
+  }, [activeDistraction]);
+
+  // Control Logic (Manual Push)
+  const handleNudge = useCallback((direction: 'left' | 'right') => {
+      setFocus(prev => {
+          const amount = direction === 'left' ? -10 : 10; // Strong push
+          return Math.min(98, Math.max(2, prev + amount));
+      });
   }, []);
 
-  const handleFocusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFocus(Number(e.target.value));
-  };
-
-  const handleCount = (type: 'BEER' | 'EYE') => {
-      if (currentTask === type) {
-          setCorrectCounts(p => p + 1);
-          setFeedback("NICE!");
-          setCurrentTask('NONE');
-      } else {
-          setFocus(p => {
-              const penalty = type === 'BEER' ? -15 : 15; // Big jolt on wrong click
-              return Math.min(99, Math.max(1, p + penalty));
-          });
-          setFeedback("FOCUS!!");
-      }
+  const handleDistractionClick = () => {
+      setScore(s => s + 1);
+      setFeedback("NICE!");
+      setActiveDistraction('NONE');
       setTimeout(() => setFeedback(""), 500);
   };
 
-  const isBlurry = focus < 30 || focus > 70;
+  // Keyboard Controls
+  useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'ArrowLeft') handleNudge('left');
+          if (e.key === 'ArrowRight') handleNudge('right');
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNudge]);
+
+  const isBlurry = focus < 20 || focus > 80;
 
   return (
-    <div className="flex flex-col h-full w-full bg-stone-800 text-white p-4 border-4 border-black relative overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-stone-800 text-white p-4 border-4 border-black relative overflow-hidden select-none">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4 border-b-2 border-stone-600 pb-2">
+      <div className="flex justify-between items-center mb-2 border-b-2 border-stone-600 pb-2 z-20">
         <div>
-            <h2 className="text-2xl font-bold text-amber-500">THE TWENTIES</h2>
-            <p className="text-xs text-stone-400">KEEP THE BOOK IN FOCUS + COUNT DISTRACTIONS</p>
+            <h2 className="text-xl font-bold text-amber-500">THE TWENTIES</h2>
+            <p className="text-[10px] md:text-xs text-stone-400">TAP ITEMS TO STOP THE PULL • CENTER THE BOOK</p>
         </div>
         <div className="text-right">
             <div className="text-2xl">{timeLeft}s</div>
-            <div className="text-xs">SCORE: {correctCounts}</div>
         </div>
       </div>
 
       {/* Main Workspace */}
-      <div className="flex-1 flex flex-col items-center justify-center relative">
+      <div className="flex-1 flex items-center justify-center relative w-full">
         
-        {/* Focus Object (The Textbook) */}
-        <div 
-            className={`bg-white text-black p-8 w-64 h-80 flex items-center justify-center text-center border-4 border-stone-900 transition-all duration-75
-                ${isBlurry ? 'blur-sm opacity-50' : 'shadow-[10px_10px_0_rgba(0,0,0,0.5)]'}
-            `}
-            style={{
-                transform: `translateX(${(focus - 50) * 2}px) rotate(${(focus - 50) * 0.1}deg)`
-            }}
-        >
-            <div>
-                <BookOpen size={48} className="mx-auto mb-4" />
-                <h3 className="font-bold text-xl underline decoration-2">STUDY HARD</h3>
-                <p className="text-xs mt-4 font-mono leading-tight">
-                    The mitochondria is the powerhouse of the cell.
-                    Do not look at the beer. Do not look at the girl.
+        {/* Left Zone: Distraction Area (Eye) */}
+        <div className="absolute left-0 top-0 bottom-0 w-1/4 flex items-center justify-center z-30 pointer-events-none">
+            {activeDistraction === 'EYE' && (
+                <div 
+                    className="pointer-events-auto cursor-pointer animate-bounce"
+                    onClick={handleDistractionClick}
+                >
+                     <div className="bg-pink-500 text-white p-4 rounded-full border-4 border-white shadow-[0_0_20px_pink]">
+                        <Eye size={48} />
+                        <span className="block text-[10px] font-bold text-center mt-1">CLICK!</span>
+                     </div>
+                     <div className="text-pink-400 font-bold text-center mt-2 animate-pulse">&lt;&lt;&lt; PULLING</div>
+                </div>
+            )}
+        </div>
+
+        {/* Right Zone: Distraction Area (Beer) */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/4 flex items-center justify-center z-30 pointer-events-none">
+             {activeDistraction === 'BEER' && (
+                <div 
+                    className="pointer-events-auto cursor-pointer animate-bounce"
+                    onClick={handleDistractionClick}
+                >
+                     <div className="bg-amber-500 text-white p-4 rounded-full border-4 border-white shadow-[0_0_20px_orange]">
+                        <Beer size={48} />
+                        <span className="block text-[10px] font-bold text-center mt-1">CLICK!</span>
+                     </div>
+                     <div className="text-amber-400 font-bold text-center mt-2 animate-pulse">PULLING &gt;&gt;&gt;</div>
+                </div>
+            )}
+        </div>
+
+        {/* Center Zone: The Book */}
+        <div className="relative w-full h-full overflow-hidden">
+            {/* Balance Center Line */}
+            <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-stone-700/50 -translate-x-1/2 z-0"></div>
+
+            {/* Focus Object (The Textbook) */}
+            <div 
+                className={`absolute top-1/2 left-0 bg-white text-black p-6 w-48 h-64 -mt-32 flex flex-col items-center justify-center text-center border-4 border-stone-900 transition-transform duration-75 z-10
+                    ${isBlurry ? 'blur-[2px] opacity-70 border-red-500' : 'shadow-[10px_10px_0_rgba(0,0,0,0.5)]'}
+                `}
+                style={{
+                    // Map focus 0..100 to percentage left position
+                    left: `${focus}%`,
+                    transform: `translateX(-50%) rotate(${(focus - 50) * 0.2}deg)`
+                }}
+            >
+                <BookOpen size={48} className="mx-auto mb-4 text-stone-800" />
+                <h3 className="font-bold text-lg underline decoration-2 mb-2">STUDYING...</h3>
+                
+                {/* Status Indicator */}
+                <div className="mt-4 w-full h-4 bg-gray-200 rounded-full overflow-hidden border border-black">
+                    <div className={`h-full ${isBlurry ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: '100%' }}></div>
+                </div>
+                <p className="text-[10px] mt-2 font-bold">
+                    {activeDistraction === 'EYE' ? "DISTRACTED LEFT!" : activeDistraction === 'BEER' ? "DISTRACTED RIGHT!" : "FOCUSED"}
                 </p>
             </div>
         </div>
 
-        {/* Focus Slider Control */}
-        <div className="w-full max-w-md mt-8 bg-stone-900 p-4 border-2 border-stone-600 rounded">
-            <label className="block text-center text-xs mb-2 font-mono uppercase">Focus Tuning Dial</label>
-            <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value={focus} 
-                onChange={handleFocusChange}
-                className="w-full h-8 bg-stone-700 rounded appearance-none cursor-pointer accent-amber-500"
-            />
-            <div className="flex justify-between text-xs text-stone-500 mt-1">
-                <span>DRIFTING...</span>
-                <span>KEEP CENTER</span>
-                <span>DRIFTING...</span>
-            </div>
-        </div>
-
-        {/* Distraction Popups */}
-        {currentTask !== 'NONE' && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
-                <div className={`animate-bounce p-4 rounded border-4 border-black bg-white text-black shadow-xl`}>
-                     {currentTask === 'BEER' ? <Beer size={64} className="text-amber-600" /> : <Eye size={64} className="text-blue-600" />}
-                </div>
-            </div>
-        )}
-
         {/* Feedback Text */}
         {feedback && (
-            <div className="absolute top-10 text-4xl font-bold text-red-500 drop-shadow-[2px_2px_0_#000] animate-ping">
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 text-4xl font-bold text-green-400 drop-shadow-[2px_2px_0_#000] animate-ping z-40">
                 {feedback}
             </div>
         )}
 
       </div>
 
-      {/* Side Controls for Counting */}
-      <div className="absolute bottom-4 left-4">
-        <PixelButton variant="primary" onClick={() => handleCount('EYE')}>
-             COUNT EYES (LEFT)
+      {/* Bottom Controls */}
+      <div className="mt-2 flex justify-between gap-4 z-40">
+        <PixelButton 
+            className="flex-1 flex items-center justify-center gap-2 h-20 touch-manipulation active:scale-95 transition-transform" 
+            variant="primary" 
+            onClick={() => handleNudge('left')}
+        >
+             <ChevronLeft size={32} /> PUSH LEFT
         </PixelButton>
-      </div>
-      <div className="absolute bottom-4 right-4">
-        <PixelButton variant="danger" onClick={() => handleCount('BEER')}>
-             COUNT BEERS (RIGHT)
+        
+        <PixelButton 
+            className="flex-1 flex items-center justify-center gap-2 h-20 touch-manipulation active:scale-95 transition-transform" 
+            variant="primary" 
+            onClick={() => handleNudge('right')}
+        >
+             PUSH RIGHT <ChevronRight size={32} />
         </PixelButton>
       </div>
     </div>
