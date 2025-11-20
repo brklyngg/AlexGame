@@ -7,6 +7,7 @@ import Level3Twenties from './levels/Level3Twenties';
 import Level4Thirties from './levels/Level4Thirties';
 import Level5Future from './levels/Level5Future';
 import PixelButton from './components/PixelButton';
+import GameAudio from './components/GameAudio';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
@@ -90,6 +91,9 @@ const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen bg-zinc-800 flex items-center justify-center p-4 md:p-8">
+      {/* Audio Manager - Plays music based on state */}
+      <GameAudio gameState={gameState} />
+
       {/* Arcade Cabinet Frame */}
       <div className="relative w-full max-w-4xl aspect-video bg-black rounded-lg shadow-2xl border-8 border-zinc-700 overflow-hidden">
         {/* Screen Glare / Reflection (Subtle) */}
