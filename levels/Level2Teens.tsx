@@ -14,7 +14,7 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<{text: string, color: string} | null>(null);
   
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number>(0);
   const lastSpawnTime = useRef<number>(0);
 
   // Game Loop
@@ -54,7 +54,7 @@ const Level2Teens: React.FC<LevelProps> = ({ onComplete, onFail }) => {
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(updateGame);
-    return () => cancelAnimationFrame(requestRef.current!);
+    return () => cancelAnimationFrame(requestRef.current);
   }, [updateGame]);
 
   // Miss detection

@@ -4,11 +4,8 @@ import PixelButton from '../components/PixelButton';
 import { BookOpen, Beer, Cat, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
-  // Focus Mechanics: 0 (Left) to 100 (Right). Center is 50.
   const [focus, setFocus] = useState(50);
-  
-  // Counting Mechanics
-  const [timeLeft, setTimeLeft] = useState(10);
+  const [timeLeft, setTimeLeft] = useState(30); // 30 Seconds Duration
   const [activeDistraction, setActiveDistraction] = useState<'NONE' | 'BEER' | 'TIGER'>('NONE');
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string>("");
@@ -17,26 +14,18 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
   const gameLoopRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const eventLoopRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  // Game Loop for Physics (Drift & Pull)
   useEffect(() => {
     gameLoopRef.current = setInterval(() => {
       setFocus(prev => {
         let change = 0;
-
-        // 1. Distraction Pull (The main force)
         if (activeDistraction === 'TIGER') {
-            change -= 0.8; // Pull Left
+            change -= 0.8; 
         } else if (activeDistraction === 'BEER') {
-            change += 0.8; // Pull Right
+            change += 0.8;
         } else {
-            // 2. Gentle natural drift when idle
-            // Oscillate slightly based on time to feel "alive"
             change = Math.sin(Date.now() / 500) * 0.1;
         }
-
         const newVal = prev + change;
-
-        // Fail Condition: Out of bounds
         if (newVal <= 0 || newVal >= 100) {
             onFail();
             return newVal;
@@ -44,17 +33,14 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
         return newVal;
       });
     }, 30);
-
     return () => clearInterval(gameLoopRef.current);
   }, [activeDistraction, onFail]);
 
-  // Timer
   useEffect(() => {
     const timer = setInterval(() => {
         setTimeLeft(t => {
             if (t <= 1) {
                 clearInterval(timer);
-                // Win condition: Survived the timer
                 onComplete(1000 + (score * 100));
                 return 0;
             }
@@ -64,39 +50,33 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
     return () => clearInterval(timer);
   }, [score, onComplete]);
 
-  // Spawn Events (Distractions)
+  // Distraction Spawner
   useEffect(() => {
     const spawnEvent = () => {
-        // Only spawn if nothing is active
         if (activeDistraction !== 'NONE') return;
 
-        // 80% chance to spawn something when the interval hits
-        if (Math.random() > 0.2) { 
+        // High chance to spawn to keep it engaging over 30s
+        if (Math.random() > 0.3) { 
             let type: 'BEER' | 'TIGER';
-
-            // Force alternation to ensure variety
             if (lastDistractionRef.current === 'BEER') {
                 type = 'TIGER';
             } else if (lastDistractionRef.current === 'TIGER') {
                 type = 'BEER';
             } else {
-                // First spawn is random
                 type = Math.random() > 0.5 ? 'BEER' : 'TIGER';
             }
-            
             lastDistractionRef.current = type;
             setActiveDistraction(type);
         }
     };
 
-    eventLoopRef.current = setInterval(spawnEvent, 1500); // Check every 1.5s (slightly faster)
+    eventLoopRef.current = setInterval(spawnEvent, 2000); 
     return () => clearInterval(eventLoopRef.current);
   }, [activeDistraction]);
 
-  // Control Logic (Manual Push)
   const handleNudge = useCallback((direction: 'left' | 'right') => {
       setFocus(prev => {
-          const amount = direction === 'left' ? -10 : 10; // Strong push
+          const amount = direction === 'left' ? -10 : 10; 
           return Math.min(98, Math.max(2, prev + amount));
       });
   }, []);
@@ -108,7 +88,6 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
       setTimeout(() => setFeedback(""), 500);
   };
 
-  // Keyboard Controls
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
           if (e.key === 'ArrowLeft') handleNudge('left');
@@ -122,7 +101,6 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
 
   return (
     <div className="flex flex-col h-full w-full bg-stone-800 text-white p-4 border-4 border-black relative overflow-hidden select-none">
-      {/* Header */}
       <div className="flex justify-between items-center mb-2 border-b-2 border-stone-600 pb-2 z-20">
         <div>
             <h2 className="text-xl font-bold text-amber-500">THE TWENTIES</h2>
@@ -133,10 +111,9 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
         </div>
       </div>
 
-      {/* Main Workspace */}
       <div className="flex-1 flex items-center justify-center relative w-full">
         
-        {/* Left Zone: Distraction Area (Tiger) */}
+        {/* TIGER */}
         <div className="absolute left-0 top-0 bottom-0 w-1/4 flex items-center justify-center z-30 pointer-events-none">
             {activeDistraction === 'TIGER' && (
                 <div 
@@ -146,7 +123,6 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
                      <div className="bg-orange-500 text-black p-4 rounded-full border-4 border-black shadow-[0_0_20px_orange] relative overflow-hidden">
                         <Cat size={48} />
                         <span className="block text-[10px] font-bold text-center mt-1">WINK!</span>
-                        {/* Simulated Wink via overlay */}
                         <div className="absolute top-[28px] left-[22px] w-2 h-1 bg-black animate-pulse"></div>
                      </div>
                      <div className="text-orange-400 font-bold text-center mt-2 animate-pulse">&lt;&lt;&lt; PULLING</div>
@@ -154,7 +130,7 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
             )}
         </div>
 
-        {/* Right Zone: Distraction Area (Beer) */}
+        {/* BEER */}
         <div className="absolute right-0 top-0 bottom-0 w-1/4 flex items-center justify-center z-30 pointer-events-none">
              {activeDistraction === 'BEER' && (
                 <div 
@@ -170,18 +146,14 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
             )}
         </div>
 
-        {/* Center Zone: The Book */}
+        {/* Book */}
         <div className="relative w-full h-full overflow-hidden">
-            {/* Balance Center Line */}
             <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-stone-700/50 -translate-x-1/2 z-0"></div>
-
-            {/* Focus Object (The Textbook) */}
             <div 
                 className={`absolute top-1/2 left-0 bg-white text-black p-6 w-48 h-64 -mt-32 flex flex-col items-center justify-center text-center border-4 border-stone-900 transition-transform duration-75 z-10
                     ${isBlurry ? 'blur-[2px] opacity-70 border-red-500' : 'shadow-[10px_10px_0_rgba(0,0,0,0.5)]'}
                 `}
                 style={{
-                    // Map focus 0..100 to percentage left position
                     left: `${focus}%`,
                     transform: `translateX(-50%) rotate(${(focus - 50) * 0.2}deg)`
                 }}
@@ -189,7 +161,6 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
                 <BookOpen size={48} className="mx-auto mb-4 text-stone-800" />
                 <h3 className="font-bold text-lg underline decoration-2 mb-2">STUDYING...</h3>
                 
-                {/* Status Indicator */}
                 <div className="mt-4 w-full h-4 bg-gray-200 rounded-full overflow-hidden border border-black">
                     <div className={`h-full ${isBlurry ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: '100%' }}></div>
                 </div>
@@ -199,16 +170,13 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
             </div>
         </div>
 
-        {/* Feedback Text */}
         {feedback && (
             <div className="absolute top-10 left-1/2 -translate-x-1/2 text-4xl font-bold text-green-400 drop-shadow-[2px_2px_0_#000] animate-ping z-40">
                 {feedback}
             </div>
         )}
-
       </div>
 
-      {/* Bottom Controls */}
       <div className="mt-2 flex justify-between gap-4 z-40">
         <PixelButton 
             className="flex-1 flex items-center justify-center gap-2 h-20 touch-manipulation active:scale-95 transition-transform" 

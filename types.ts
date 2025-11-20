@@ -9,9 +9,12 @@ export enum GameState {
   VICTORY = 'VICTORY'
 }
 
+export type AudioMood = 'DEFAULT' | 'FANFARE' | 'ERROR' | 'PARTY' | 'SILENT';
+
 export interface LevelProps {
   onComplete: (score: number) => void;
   onFail: () => void;
+  setAudioMood: (mood: AudioMood) => void;
 }
 
 export type NoteKey = 'D' | 'I' | 'Y' | 'M';
