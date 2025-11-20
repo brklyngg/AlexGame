@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LevelProps } from '../types';
 import PixelButton from '../components/PixelButton';
-import { BookOpen, Beer, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, Beer, Cat, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
   // Focus Mechanics: 0 (Left) to 100 (Right). Center is 50.
@@ -9,10 +9,11 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
   
   // Counting Mechanics
   const [timeLeft, setTimeLeft] = useState(10);
-  const [activeDistraction, setActiveDistraction] = useState<'NONE' | 'BEER' | 'EYE'>('NONE');
+  const [activeDistraction, setActiveDistraction] = useState<'NONE' | 'BEER' | 'TIGER'>('NONE');
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string>("");
 
+  const lastDistractionRef = useRef<'BEER' | 'TIGER' | null>(null);
   const gameLoopRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const eventLoopRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
@@ -23,7 +24,7 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
         let change = 0;
 
         // 1. Distraction Pull (The main force)
-        if (activeDistraction === 'EYE') {
+        if (activeDistraction === 'TIGER') {
             change -= 0.8; // Pull Left
         } else if (activeDistraction === 'BEER') {
             change += 0.8; // Pull Right
@@ -69,14 +70,26 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
         // Only spawn if nothing is active
         if (activeDistraction !== 'NONE') return;
 
-        if (Math.random() > 0.3) { 
-            // 50/50 chance of Left (Eye) or Right (Beer)
-            const type = Math.random() > 0.5 ? 'BEER' : 'EYE';
+        // 80% chance to spawn something when the interval hits
+        if (Math.random() > 0.2) { 
+            let type: 'BEER' | 'TIGER';
+
+            // Force alternation to ensure variety
+            if (lastDistractionRef.current === 'BEER') {
+                type = 'TIGER';
+            } else if (lastDistractionRef.current === 'TIGER') {
+                type = 'BEER';
+            } else {
+                // First spawn is random
+                type = Math.random() > 0.5 ? 'BEER' : 'TIGER';
+            }
+            
+            lastDistractionRef.current = type;
             setActiveDistraction(type);
         }
     };
 
-    eventLoopRef.current = setInterval(spawnEvent, 2000); // Check every 2s
+    eventLoopRef.current = setInterval(spawnEvent, 1500); // Check every 1.5s (slightly faster)
     return () => clearInterval(eventLoopRef.current);
   }, [activeDistraction]);
 
@@ -123,18 +136,20 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
       {/* Main Workspace */}
       <div className="flex-1 flex items-center justify-center relative w-full">
         
-        {/* Left Zone: Distraction Area (Eye) */}
+        {/* Left Zone: Distraction Area (Tiger) */}
         <div className="absolute left-0 top-0 bottom-0 w-1/4 flex items-center justify-center z-30 pointer-events-none">
-            {activeDistraction === 'EYE' && (
+            {activeDistraction === 'TIGER' && (
                 <div 
                     className="pointer-events-auto cursor-pointer animate-bounce"
                     onClick={handleDistractionClick}
                 >
-                     <div className="bg-pink-500 text-white p-4 rounded-full border-4 border-white shadow-[0_0_20px_pink]">
-                        <Eye size={48} />
-                        <span className="block text-[10px] font-bold text-center mt-1">CLICK!</span>
+                     <div className="bg-orange-500 text-black p-4 rounded-full border-4 border-black shadow-[0_0_20px_orange] relative overflow-hidden">
+                        <Cat size={48} />
+                        <span className="block text-[10px] font-bold text-center mt-1">WINK!</span>
+                        {/* Simulated Wink via overlay */}
+                        <div className="absolute top-[28px] left-[22px] w-2 h-1 bg-black animate-pulse"></div>
                      </div>
-                     <div className="text-pink-400 font-bold text-center mt-2 animate-pulse">&lt;&lt;&lt; PULLING</div>
+                     <div className="text-orange-400 font-bold text-center mt-2 animate-pulse">&lt;&lt;&lt; PULLING</div>
                 </div>
             )}
         </div>
@@ -148,7 +163,7 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
                 >
                      <div className="bg-amber-500 text-white p-4 rounded-full border-4 border-white shadow-[0_0_20px_orange]">
                         <Beer size={48} />
-                        <span className="block text-[10px] font-bold text-center mt-1">CLICK!</span>
+                        <span className="block text-[10px] font-bold text-center mt-1">TASTY!</span>
                      </div>
                      <div className="text-amber-400 font-bold text-center mt-2 animate-pulse">PULLING &gt;&gt;&gt;</div>
                 </div>
@@ -178,8 +193,8 @@ const Level3Twenties: React.FC<LevelProps> = ({ onComplete, onFail }) => {
                 <div className="mt-4 w-full h-4 bg-gray-200 rounded-full overflow-hidden border border-black">
                     <div className={`h-full ${isBlurry ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: '100%' }}></div>
                 </div>
-                <p className="text-[10px] mt-2 font-bold">
-                    {activeDistraction === 'EYE' ? "DISTRACTED LEFT!" : activeDistraction === 'BEER' ? "DISTRACTED RIGHT!" : "FOCUSED"}
+                <p className="text-[10px] mt-2 font-bold uppercase">
+                    {activeDistraction === 'TIGER' ? "LADY TIGER!" : activeDistraction === 'BEER' ? "BEER TIME!" : "FOCUSED"}
                 </p>
             </div>
         </div>
